@@ -10,7 +10,7 @@ Follow these steps to create and customize your own WhatsApp bot:
 
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/your-repo/WhatsappBotTemplate.git
+   git clone https://github.com/hacxk/WhatsappBotTemplate.git
    ```
 2. **Install Dependencies**
    ```bash
@@ -18,7 +18,7 @@ Follow these steps to create and customize your own WhatsApp bot:
    npm install
    ```
 3. **Configure the Bot**
-   - Open the `config.js` file and add your WhatsApp account details.
+   - Open the `config.js` file and add your WhatsApp account details. !if you want
 
 4. **Run the Bot**
    ```bash
@@ -28,6 +28,8 @@ Follow these steps to create and customize your own WhatsApp bot:
 ### Creating a Command
 
 To create a new command, follow the structure below. Each command is a module that exports an object with specific properties and an `execute` function. ✨
+
+> to create a command first create a ```filename.js``` in Plugins Folder >
 
 ```javascript
 module.exports = {
@@ -81,7 +83,7 @@ module.exports = {
     isGroupOnly: false,
     isChannelOnly: false,
     async execute(sock, m, args) {
-        await sock.sendMessage(m.key.remoteJid, { text: 'Hello there! 👋 How can I assist you today?' });
+        await hacxk.reply('Hello there! 👋 How can I assist you today?', m);
     }
 };
 ```
