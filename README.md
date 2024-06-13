@@ -18,7 +18,7 @@ Follow these steps to create and customize your own WhatsApp bot:
    npm install
    ```
 3. **Configure the Bot**
-   - Open the `config.js` file and add your WhatsApp account details if you want.
+   - Open the `config.js` file and add your WhatsApp account details if needed.
 
 4. **Run the Bot**
    ```bash
@@ -70,7 +70,14 @@ You can send different types of messages using the bot. Here are the supported t
    - `text`: The text message you want to send.
    - `m`: The message you want to reply to.
 
-2. **Image Messages**
+2. **React to Messages**
+   ```javascript
+   await hacxk.react(emoji, m);
+   ```
+   - `emoji`: The emoji reaction.
+   - `m`: The message you want to react to.
+
+3. **Image Messages**
    ```javascript
    await hacxk.Image(imageBuffer, m, caption);
    ```
@@ -78,7 +85,7 @@ You can send different types of messages using the bot. Here are the supported t
    - `m`: The message you want to reply to.
    - `caption`: (Optional) A caption for the image.
 
-3. **Audio Messages**
+4. **Audio Messages**
    ```javascript
    await hacxk.Audio(audioBuffer, m);
    ```
@@ -110,7 +117,7 @@ This command will reply with "Hello there! 👋 How can I assist you today?" whe
 
 ## Contributing
 
-Contributions are welcome! If you have ideas to improve this bot, feel free to open an issue or submit a pull request on GitHub.
+Contributions are welcome! If you have ideas to improve this bot, feel free to open an issue or submit a pull request on GitHub. 
 
 ---
 
@@ -128,7 +135,7 @@ Stay connected and have fun with your new WhatsApp bot! 🚀💬
 
 ### Additional Helper Functions
 
-Below is a utility to handle sending messages and updating presence status. It includes handling for sending text, image, and audio messages.
+Below is a utility to handle sending messages and updating presence status. It includes handling for sending text, image, audio, and reaction messages.
 
 ```javascript
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -158,6 +165,23 @@ async function sendMessageHandle(sock) {
                         }
                     } catch (error) {
                         console.error("Failed to send reply:", error);
+                        throw error;
+                    }
+                },
+
+                react: async (emoji, m) => {
+                    try {
+                        if (!m || !m.key || !emoji) {
+                            throw new Error("Message object or key or Emoji is not available");
+                        }
+                        await sock.readMessages([m.key]);
+                        await sock.sendPresenceUpdate('composing', m.key.remoteJid);
+                        await delay(500);
+                        const message = await sock.sendMessage(m.key.remoteJid, { react: { text: emoji, key: m.key } });
+                        await sock.sendPresenceUpdate('available', m.key.remoteJid);
+                        return message;
+                    } catch (error) {
+                        console.error("Failed to send Reaction:", error);
                         throw error;
                     }
                 },
