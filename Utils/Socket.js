@@ -8,7 +8,6 @@ const { handleMessage } = require('../Lib/MessageHandle/MessagesHandle');
 const { commandHandle, loadCommands } = require('../Lib/CommandHandle/CommandHandle');
 const { sendMessageHandle } = require('../Lib/SendMessageHandle/SendMessageHandle');
 
-
 // Load commands when starting the bot
 let commands;
 (async () => {
@@ -18,15 +17,44 @@ let commands;
 // Set up logging
 const logger = pino({ level: 'silent' });
 
-// Start WhatsApp bot
 const startHacxkMDNews = async () => {
+    // Dynamic import inquirer & chalk
+    const inquirerModule = await import('inquirer');
+    const chalk = (await import('chalk')).default;
+    const inquirer = inquirerModule.default;
+
     try {
         // Load state and authentication
         const { state, saveCreds } = await useMultiFileAuthState(path.join(__dirname, '../Session'));
+        let pairingOption;
+        let pairingNumber;
+
+        if (!state.creds.me) {
+            // Prompt user for pairing option
+            const response = await inquirer.prompt([{
+                type: 'list',
+                name: 'pairingOption',
+                message: 'Select an option to pair:',
+                choices: ['QR CODE', 'Whatsapp Pairing Code']
+            }]);
+            pairingOption = response.pairingOption;
+
+            if (pairingOption === 'Whatsapp Pairing Code') {
+                const numberResponse = await inquirer.prompt([{
+                    type: 'input',
+                    name: 'pairingNumber',
+                    message: 'Please enter your valid WhatsApp number (without + sign):',
+                    validate: input => /^\d+$/.test(input) ? true : 'Please enter a valid number'
+                }]);
+                pairingNumber = numberResponse.pairingNumber;
+            }
+        } else {
+            pairingOption = 'QR CODE';
+        }
 
         const sock = await makeWASocket({
             version: [2, 3000, 1014080102],
-            printQRInTerminal: true,
+            printQRInTerminal: pairingOption === 'QR CODE',
             mobile: false,
             keepAliveIntervalMs: 10000,
             syncFullHistory: false,
@@ -54,14 +82,19 @@ const startHacxkMDNews = async () => {
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
 
-            if (qr) {
-                console.log(qr)
+            if (qr && pairingOption === 'QR CODE') {
+                console.log(qr);
+            } else if (!sock.authState.creds.registered) {
+                setTimeout(async () => {
+                    const code = await sock.requestPairingCode(pairingNumber);
+                    console.log(chalk.greenBright(`Pairing Code: ${code}`))
+                }, 5000);
             }
 
             if (connection === "open") {
-                console.log('\x1b[36m%s\x1b[0m', 'Connected! 🔒✅');
-                await sendMessageHandle(sock)
-                await sock.sendMessage(sock.user.id, { text: '*Bot Is Online!*' })
+                console.log(chalk.cyan('Connected! 🔒✅'));
+                await sendMessageHandle(sock);
+                await sock.sendMessage(sock.user.id, { text: '*Bot Is Online!*' });
 
                 return new Promise((resolve, reject) => {
                     setTimeout(async () => {
@@ -82,56 +115,54 @@ const startHacxkMDNews = async () => {
                     const reason = lastDisconnect && lastDisconnect.error ? new Boom(lastDisconnect.error).output.statusCode : 500;
                     switch (reason) {
                         case DisconnectReason.connectionClosed:
-                            console.log('\x1b[36m%s\x1b[0m', 'Connection closed! 🔒');
+                            console.log(chalk.cyan('Connection closed! 🔒'));
                             sock.ev.removeAllListeners();
                             startHacxkMDNews();
                             await sock.ws.close();
                             return;
                         case DisconnectReason.connectionLost:
-                            console.log('\x1b[36m%s\x1b[0m', 'Connection lost from server! 📡');
-                            console.log('\x1b[36m%s\x1b[0m', 'Trying to Reconnect! 🔂');
+                            console.log(chalk.cyan('Connection lost from server! 📡'));
+                            console.log(chalk.cyan('Trying to Reconnect! 🔂'));
                             await delay(2000);
                             sock.ev.removeAllListeners();
                             startHacxkMDNews();
                             await sock.ws.close();
                             return;
                         case DisconnectReason.restartRequired:
-                            console.log('\x1b[36m%s\x1b[0m', 'Restart required, restarting... 🔄');
+                            console.log(chalk.cyan('Restart required, restarting... 🔄'));
                             await delay(1000);
                             sock.ev.removeAllListeners();
                             startHacxkMDNews();
                             return;
                         case DisconnectReason.timedOut:
-                            console.log('\x1b[36m%s\x1b[0m', 'Connection timed out! ⌛');
+                            console.log(chalk.cyan('Connection timed out! ⌛'));
                             sock.ev.removeAllListeners();
                             startHacxkMDNews();
                             await sock.ws.close();
                             return;
                         default:
-                            console.log('\x1b[36m%s\x1b[0m', 'Connection closed with bot. Trying to run again. ⚠️');
+                            console.log(chalk.cyan('Connection closed with bot. Trying to run again. ⚠️'));
                             sock.ev.removeAllListeners();
                             startHacxkMDNews();
                             await sock.ws.close();
                             return;
                     }
                 } catch (error) {
-                    console.error('\x1b[31m%s\x1b[0m', 'Error occurred during connection close:', error.message);
+                    console.error(chalk.red('Error occurred during connection close:'), error.message);
                 }
             }
         });
 
         sock.ev.on('messages.upsert', async ({ messages }) => {
             for (const m of messages) {
-                await handleMessage(m)
-                await commandHandle(sock, m, commands)
+                await handleMessage(m);
+                await commandHandle(sock, m, commands);
             }
         });
 
     } catch (error) {
-        console.error('\x1b[31m%s\x1b[0m', 'An error occurred:', error.message);
+        console.error(chalk.red('An error occurred:'), error.message);
     }
 };
 
-
-
-module.exports = { startHacxkMDNews }
+module.exports = { startHacxkMDNews };
