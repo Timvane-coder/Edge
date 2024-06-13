@@ -29,6 +29,23 @@ async function sendMessageHandle(sock) {
                     }
                 },
 
+                react: async (emoji, m) => {
+                    try {
+                        if (!m || !m.key || !emoji) {
+                            throw new Error("Message object or key or Emoji is not available");
+                        }
+                            await sock.readMessages([m.key]);
+                            await sock.sendPresenceUpdate('composing', m.key.remoteJid);
+                            await delay(500);
+                            const message = await sock.sendMessage(m.key.remoteJid, { react: { text: emoji, key: m.key } });
+                            await sock.sendPresenceUpdate('available', m.key.remoteJid);
+                            return message;
+                    } catch (error) {
+                        console.error("Failed to send Reaction:", error);
+                        throw error;
+                    }
+                },
+
                 Image: async (imageBuffer, m, caption) => {
                     try {
                         if (!imageBuffer || !m || !m.key) {
