@@ -5,6 +5,14 @@ A simple and elegant WhatsApp bot written in JavaScript using the Baileys librar
 
 ## 🚀 Create Your Own WhatsApp Bot
 
+---
+
+> [!CAUTION]
+>
+> First You Need to Install [NodeJS](https://nodejs.org/en) in your bot building environment.
+
+---
+
 ### 🛠️ Setup Instructions
 
 Follow these magical steps to create and customize your very own WhatsApp bot:
@@ -13,11 +21,6 @@ Follow these magical steps to create and customize your very own WhatsApp bot:
    ```bash
    git clone https://github.com/hacxk/WhatsappBotTemplate.git
    ```
-
-   
-> [!CAUTION]
->
-> First You Need to Install [NodeJS](https://nodejs.org/en) in your bot building environment.
 
 2. **📦 Install Dependencies**
    ```bash
