@@ -1,0 +1,21 @@
+{
+  "name": "hacxk-news",
+  "version": "1.0.0",
+  "description": "baileys simple whatsapp bot for news channel",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "keywords": [
+    "bot"
+  ],
+  "author": "hacxk",
+  "license": "MIT",
+  "dependencies": {
+    "@whiskeysockets/baileys": "github:zennn08/Baileys#master",
+    "express": "^4.19.2",
+    "link-preview-js": "^3.0.5",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
