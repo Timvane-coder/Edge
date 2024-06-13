@@ -14,6 +14,11 @@ Follow these magical steps to create and customize your very own WhatsApp bot:
    git clone https://github.com/hacxk/WhatsappBotTemplate.git
    ```
 
+   
+> [!CAUTION]
+>
+> First You Need to Install [NodeJS](https://nodejs.org/en) in your bot building environment.
+
 2. **📦 Install Dependencies**
    ```bash
    cd WhatsappBotTemplate
