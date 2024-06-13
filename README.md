@@ -55,7 +55,10 @@ module.exports = {
 - **`emoji`**: 🎨 An emoji to visually represent the command.
 - **`isGroupOnly`**: 👥 A boolean indicating if the command should only work in group chats.
 - **`isChannelOnly`**: 📢 A boolean indicating if the command should only work in channels.
-- **`execute(sock, m, args)`**: 🧠 The main function that gets executed when the command is called.
+- **`execute(sock, m, args)`**: The main function that gets executed when the command is called. It takes the following parameters:
+  - `sock`: The WhatsApp socket instance.
+  - `m`: The message object that triggered the command.
+  - `args`: An array of arguments passed to the command.
 
 ---
 
