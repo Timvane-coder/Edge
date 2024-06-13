@@ -68,20 +68,33 @@ You can send different types of messages using the bot. Here are the supported t
    await hacxk.reply(text, m);
    ```
 
+      - `text`: The text message you want to send.
+   - `m`: The message you want to reply to.
+
 2. **😄 React to Messages**
    ```javascript
    await hacxk.react(emoji, m);
    ```
+
+     - `emoji`: The emoji reaction.
+   - `m`: The message you want to react to.
 
 3. **🖼️ Image Messages**
    ```javascript
    await hacxk.Image(imageBuffer, m, caption);
    ```
 
+      - `imageBuffer`: The image buffer you want to send.
+   - `m`: The message you want to reply to.
+   - `caption`: (Optional) A caption for the image.
+
 4. **🎵 Audio Messages**
    ```javascript
    await hacxk.Audio(audioBuffer, m);
    ```
+
+      - `audioBuffer`: The audio buffer you want to send.
+   - `m`: The message you want to reply to.
 
 ---
 
