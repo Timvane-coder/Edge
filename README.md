@@ -153,6 +153,7 @@ module.exports = {
         HacxK.on('hacxk.messages', listener);
     }
 };
+```
 
 ---
 
