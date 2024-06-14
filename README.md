@@ -38,6 +38,10 @@ Follow these magical steps to create and customize your very own WhatsApp bot:
 
 ### 🔮 Creating a Command
 
+> [!INFO]
+>
+> If you want more help join our whatsapp channel [HACXK MD 🙋‍♂️](https://whatsapp.com/channel/0029Vahkcya1SWt1EzYAg43I)).
+
 To create a new command, follow this enchanting structure. Each command is a module that exports an object with specific properties and an `execute` function. ✨
 
 > 📝 To create a command, first create a `filename.js` in the Plugins folder.
