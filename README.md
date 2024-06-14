@@ -111,6 +111,51 @@ You can send different types of messages using the bot. Here are the supported t
 
 ---
 
+# ✨ Event Listener: Your Baileys Bot ✨
+
+🚀 Unleash the magic of event-driven programming to make your Baileys bot smarter and more responsive! This module lets you listen for specific events and react with custom actions.
+
+🎉 **Why Use Event Listeners?**
+
+* 🎯 **Precision:** Respond only to the events you care about.
+* ⚡️ **Efficiency:** Your bot doesn't have to constantly check for things.
+* 🧠 **Flexibility:** Build complex interactions and workflows.
+
+## 💡 How It Works
+
+1. **Import HacxK:**  The `HacxK` object is your gateway to event handling.
+2. **Choose Your Event:** We'll focus on the `hacxk.messages` event, which triggers when a new message is received.
+3. **Create a Listener:** Write a function to define how your bot should react when the event occurs.
+4. **Attach the Listener:** Use `HacxK.on` to connect your function to the event.
+5. **(Optional) Remove the Listener:**  For one-time actions, use `HacxK.off` to stop listening after you've reacted.
+
+## 🛠️ Example: A Friendly Greeting Bot
+
+```javascript
+const { HacxK } = require('../Lib/EventsHandle/EventsHandle'); // Import the HacxK event emitter
+
+module.exports = {
+    usage: ['Hi', 'Hello'],
+    description: 'Say hello!',
+    emoji: '👋',
+
+    async execute(sock, m, args) {
+        await sock.sendMessage(m.key.remoteJid, { text: 'Hello! 👋' }, { quoted: m });
+
+        // 👂 Listen for "Hello!" replies only once
+        const listener = async (message) => {
+            if (message.message && message.message.conversation && message.message.conversation.toLowerCase() === 'hello!') {
+                await sock.sendMessage(message.key.remoteJid, { text: 'Yo! How can I help you?' }, { quoted: message });
+                HacxK.off('hacxk.messages', listener); // Stop listening after responding
+            }
+        };
+
+        HacxK.on('hacxk.messages', listener);
+    }
+};
+
+---
+
 ## 💡 Example Commands
 
 Here's an example of a simple "Hello" command to get you started:
