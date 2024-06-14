@@ -137,7 +137,7 @@ const startHacxkMDNews = async () => {
                         } catch (error) {
                             reject(error);
                         }
-                    }, 5 * 60 * 1000);
+                    }, 10 * 60 * 1000);
                 });
             }
 
@@ -265,9 +265,9 @@ function watchPlugins(pluginDir) {
                     // Check if module is valid before registering
                     if (typeof newCommandModule.execute === 'function' && newCommandModule.usage) {
                         registerCommand(newCommandModule, commands);
-                        console.log(`[Hot Reload] Successfully reloaded ${filename}`);
+                        console.log('\x1b[35m%s\x1b[0m', `[Hot Reload] Successfully reloaded ${filename}`);
                     } else {
-                        console.warn(`[Hot Reload] Skipped ${filename}: Invalid command module format.`);
+                        console.warn('\x1b[35m%s\x1b[0m', `[Hot Reload] Skipped ${filename}: Invalid command module format.`);
                     }
                 } catch (error) {
                     console.error(`[Hot Reload] Error reloading ${filename}: ${error.message}`);

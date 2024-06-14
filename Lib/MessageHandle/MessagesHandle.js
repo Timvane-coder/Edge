@@ -44,6 +44,7 @@ async function handleMessage(m) {
                 break;
             default:
                 console.log('\x1b[33m%s\x1b[0m', `Unknown message type: ${messageType}`); // Yellow color for unknown message types
+                console.log(JSON.stringify(m))
         }
     } catch (error) {
         console.error('\x1b[31m%s\x1b[0m', 'Error handling message:', error); // Red color for error messages

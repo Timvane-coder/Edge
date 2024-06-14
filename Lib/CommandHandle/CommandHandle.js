@@ -10,6 +10,7 @@ class CommandError extends Error {
 }
 
 async function commandHandle(sock, m, commands) {
+    const com = commands
     try {
         let text = '';
         if (m.message && m.message.conversation) {
@@ -20,7 +21,7 @@ async function commandHandle(sock, m, commands) {
             return; // Skip non-text messages
         }
 
-        if (text.startsWith('!')) {
+        if (text.startsWith('!') || text.startsWith('.' || text.startsWith('/'))) {
             const commandName = text.slice(1).split(' ')[0];
             const args = text.slice(1 + commandName.length).trim().split(' ');
 
@@ -49,7 +50,7 @@ async function commandHandle(sock, m, commands) {
                             await sock.sendMessage(m.key.remoteJid, { react: { text: command.emoji, key: m.key } });
                         }
 
-                        await command.execute(sock, m, args);
+                        await command.execute(sock, m, args, com);
                         return;
                     } catch (error) {
                         if (error instanceof CommandError) {

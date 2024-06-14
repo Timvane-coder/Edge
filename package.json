@@ -13,11 +13,13 @@
   "author": "hacxk",
   "license": "MIT",
   "dependencies": {
-    "@whiskeysockets/baileys": "github:zennn08/Baileys#master",
+    "@whiskeysockets/baileys": "^6.7.5",
     "chalk": "^5.3.0",
+    "cheerio": "^1.0.0-rc.12",
     "express": "^4.19.2",
     "inquirer": "^9.2.23",
     "link-preview-js": "^3.0.5",
+    "moment-timezone": "^0.5.45",
     "qrcode-terminal": "^0.12.0"
   }
 }
