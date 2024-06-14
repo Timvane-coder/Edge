@@ -1,12 +1,15 @@
-const { makeWASocket, useMultiFileAuthState, delay, DisconnectReason, makeCacheableSignalKeyStore, makeInMemoryStore, getDevice } = require("@whiskeysockets/baileys");
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore, makeInMemoryStore, delay, Browsers } = require("@whiskeysockets/baileys");
 const path = require('path');
 const pino = require('pino');
 const { Boom } = require("@hapi/boom");
+const NodeCache = require("node-cache");
+const fs = require('fs');
 
 // Handling Functions
 const { handleMessage } = require('../Lib/MessageHandle/MessagesHandle');
 const { commandHandle, loadCommands } = require('../Lib/CommandHandle/CommandHandle');
 const { sendMessageHandle } = require('../Lib/SendMessageHandle/SendMessageHandle');
+const { ownEvent } = require('../Lib/EventsHandle/EventsHandle');
 
 // Load commands when starting the bot
 let commands;
@@ -16,6 +19,8 @@ let commands;
 
 // Set up logging
 const logger = pino({ level: 'silent' });
+const store = makeInMemoryStore({ logger: pino().child({ level: 'silent', stream: 'store' }) });
+const msgRetryCounterCache = new NodeCache();
 
 const startHacxkMDNews = async () => {
     // Dynamic import inquirer & chalk
@@ -26,6 +31,11 @@ const startHacxkMDNews = async () => {
     try {
         // Load state and authentication
         const { state, saveCreds } = await useMultiFileAuthState(path.join(__dirname, '../Session'));
+
+        // fetch latest version of WA Web
+        const { version, isLatest } = await fetchLatestBaileysVersion()
+        console.log(chalk.cyanBright(`using WA v${version.join('.')}, isLatest: ${isLatest}`))
+
         let pairingOption;
         let pairingNumber;
 
@@ -53,38 +63,41 @@ const startHacxkMDNews = async () => {
         }
 
         const sock = await makeWASocket({
-            version: [2, 3000, 1014080102],
+            version: version,
             printQRInTerminal: pairingOption === 'QR CODE',
             mobile: false,
-            keepAliveIntervalMs: 10000,
-            syncFullHistory: false,
-            downloadHistory: false,
-            markOnlineOnConnect: true,
-            defaultQueryTimeoutMs: undefined,
-            logger,
-            Browsers: ['Hacxk-MD', 'Chrome', '113.0.5672.126'],
+            shouldSyncHistoryMessage: true,
+            syncFullHistory: true,
+            downloadHistory: true,
+            msgRetryCounterCache,
+            logger: pino({ level: "silent" }),
+            browser: Browsers.ubuntu("Chrome"),  // Else Put This   browser: ["Ubuntu", "Chrome", "20.0.04"], Don't Remove this commented
             auth: {
                 creds: state.creds,
+                /** caching makes the store faster to send/recv messages */
                 keys: makeCacheableSignalKeyStore(state.keys, logger),
             },
             linkPreviewImageThumbnailWidth: 1980,
             generateHighQualityLinkPreview: true,
+            maxMsgRetryCount: 10,
+            retryRequestDelayMs: 500,
+            getMessage,
         });
+
+        store?.bind(sock.ev);
 
         sock.ev.on('connection.update', async ({ receivedPendingNotifications }) => {
-            if (receivedPendingNotifications && !(sock.authState.creds && sock.authState.creds.myAppStateKeyId)) {
-                await sock.ev.flush();
-            }
+            sock.ev.flush(true);
         });
-
-        sock.ev.on('creds.update', saveCreds);
 
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
 
             if (qr && pairingOption === 'QR CODE') {
                 console.log(qr);
-            } else if (!sock.authState.creds.registered) {
+            }
+
+            if (!sock.authState.creds.registered && pairingOption === 'Whatsapp Pairing Code') {
                 setTimeout(async () => {
                     const code = await sock.requestPairingCode(pairingNumber);
                     console.log(chalk.greenBright(`Pairing Code: ${code}`))
@@ -92,6 +105,19 @@ const startHacxkMDNews = async () => {
             }
 
             if (connection === "open") {
+                // Store the interval IDs so we can clear them later
+                let keepAliveInterval;
+                let unavailableInterval;
+
+                keepAliveInterval = setInterval(async () => {
+                    try {
+                        await sock.sendPresenceUpdate('available', sock.user.id);
+                    } catch (error) {
+                        if (error.message !== 'Connection Closed') { // Only log other errors
+                            console.error('Error sending keep-alive:', error);
+                        }
+                    }
+                }, 10000);
                 console.log(chalk.cyan('Connected! 🔒✅'));
                 await sendMessageHandle(sock);
                 await sock.sendMessage(sock.user.id, { text: '*Bot Is Online!*' });
@@ -99,12 +125,17 @@ const startHacxkMDNews = async () => {
                 return new Promise((resolve, reject) => {
                     setTimeout(async () => {
                         try {
-                            await sock.end();
+                            console.log(chalk.yellow('Restarting socket to clear in-memory store...'))
+                            // Clear intervals before ending the socket
+                            clearInterval(keepAliveInterval);
+                            clearInterval(unavailableInterval);
+
+                            await sock.end({ reason: 'Clearing store' }); // Disconnect gracefully
                             resolve();
                         } catch (error) {
                             reject(error);
                         }
-                    }, 13 * 60 * 1000);
+                    }, 5 * 60 * 1000);
                 });
             }
 
@@ -117,6 +148,7 @@ const startHacxkMDNews = async () => {
                         case DisconnectReason.connectionClosed:
                             console.log(chalk.cyan('Connection closed! 🔒'));
                             sock.ev.removeAllListeners();
+                            await delay(5000); // Add a delay before reconnecting
                             startHacxkMDNews();
                             await sock.ws.close();
                             return;
@@ -137,12 +169,14 @@ const startHacxkMDNews = async () => {
                         case DisconnectReason.timedOut:
                             console.log(chalk.cyan('Connection timed out! ⌛'));
                             sock.ev.removeAllListeners();
+                            await delay(5000); // Add a delay before reconnecting
                             startHacxkMDNews();
                             await sock.ws.close();
                             return;
                         default:
                             console.log(chalk.cyan('Connection closed with bot. Trying to run again. ⚠️'));
                             sock.ev.removeAllListeners();
+                            await delay(5000); // Add a delay before reconnecting
                             startHacxkMDNews();
                             await sock.ws.close();
                             return;
@@ -150,15 +184,61 @@ const startHacxkMDNews = async () => {
                 } catch (error) {
                     console.error(chalk.red('Error occurred during connection close:'), error.message);
                 }
-            }
+            }           
+
+            // Enable read receipts
+            sock.sendReadReceiptAck = true;
         });
+
+        sock.ev.on('creds.update', () => {
+            sock.ev.removeAllListeners('creds.update'); // Remove previous listeners
+            saveCreds();
+        }); 
 
         sock.ev.on('messages.upsert', async ({ messages }) => {
             for (const m of messages) {
-                await handleMessage(m);
-                await commandHandle(sock, m, commands);
+                try {
+                    await handleMessage(m);
+                    await commandHandle(sock, m, commands);
+                } catch (error) {
+                    if (error.message.includes('waiting for message')) {
+                        // Send a message to the user acknowledging the issue
+                        await sock.sendMessage(m.key.remoteJid, {
+                            text: "This message is encrypted and can't be read yet. Please wait for a few moments while it is decrypted."
+                        });
+                    } else if (error.message.includes('waiting for message') && retryCount < 3) {
+                        // Retry decryption a few times before falling back
+                        setTimeout(async () => {
+                            try {
+                                await handleMessage(m);
+                                await commandHandle(sock, m, commands);
+                            } catch (error) {
+                                console.error(chalk.red('Retry failed:'), error.message);
+                                // Fallback option: Inform the user and offer a solution
+                                await sock.sendMessage(m.key.remoteJid, {
+                                    text: "This message could not be decrypted. Please check your WhatsApp on your phone or contact support for assistance."
+                                });
+                            }
+                        }, 5000); // Retry after 5 seconds
+                        retryCount++;
+                    }
+                }
             }
         });
+
+        async function getMessage(key) {
+            if (store) {
+                const msg = await store.loadMessage(key.remoteJid, key.id);
+                return msg?.message || undefined;
+            }
+
+            // Only if store is present
+            return proto.Message.fromObject({});
+        }
+
+        // Socket.js -- This is For Listening User Option!
+        await ownEvent(sock);
+
 
     } catch (error) {
         console.error(chalk.red('An error occurred:'), error.message);
@@ -166,3 +246,4 @@ const startHacxkMDNews = async () => {
 };
 
 module.exports = { startHacxkMDNews };
+

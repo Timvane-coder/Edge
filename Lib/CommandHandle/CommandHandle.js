@@ -1,9 +1,16 @@
 const fs = require('fs');
 const path = require('path');
 
+class CommandError extends Error {
+    constructor(message, commandName) {
+        super(message);
+        this.name = 'CommandError';
+        this.commandName = commandName;
+    }
+}
+
 async function commandHandle(sock, m, commands) {
     try {
-        // Check for different message types that might contain text
         let text = '';
         if (m.message && m.message.conversation) {
             text = m.message.conversation.toLowerCase();
@@ -13,10 +20,9 @@ async function commandHandle(sock, m, commands) {
             return; // Skip non-text messages
         }
 
-        // Check for command prefix (modify as needed)
         if (text.startsWith('!')) {
-            const commandName = text.slice(1).split(' ')[0]; // Extract command name (without prefix and first space)
-            const args = text.slice(1 + commandName.length).trim().split(' '); // Extract arguments
+            const commandName = text.slice(1).split(' ')[0];
+            const args = text.slice(1 + commandName.length).trim().split(' ');
 
             for (const commandKey in commands) {
                 const command = commands[commandKey];
@@ -24,38 +30,39 @@ async function commandHandle(sock, m, commands) {
 
                 if (usages.includes(commandName)) {
                     try {
-                        // Check if the command is channel-only and the message is not from a channel
-                        if (command.isChannelOnly && !m.key.remoteJid.endsWith('@newsletter')) {
-                            await sock.sendMessage(m.key.remoteJid, {
-                                text: '🚨 This command can only be used in Channels.',
-                            }, { quoted: m });
-                            return;
+                        // **** Improved Work Mode Logic ****
+                        let isValidChat = command.isWorkAll; 
+
+                        if (!isValidChat) {
+                            isValidChat = (command.isChannelOnly && m.key.remoteJid.endsWith('@newsletter')) ||
+                                          (command.isGroupOnly && m.key.remoteJid.endsWith('@g.us'));
                         }
 
-                        // Check if the command is group-only and the message is not from a group
-                        if (command.isGroupOnly && !m.key.remoteJid.endsWith('@g.us')) {
-                            await sock.sendMessage(m.key.remoteJid, {
-                                text: '🚨 This command can only be used in groups.',
-                            }, { quoted: m });
-                            return;
+                        if (!isValidChat) {
+                            throw new CommandError(
+                                `This command can only be used in ${command.isChannelOnly ? 'Channels' : command.isGroupOnly ? 'Groups' : 'Unsupported chats'}.`,
+                                commandName
+                            );
                         }
 
-                        // React to the user's message with the command's emoji
                         if (command.emoji) {
-                            await sock.sendMessage(m.key.remoteJid, {
-                                react: { text: command.emoji, key: m.key }
-                            });
+                            await sock.sendMessage(m.key.remoteJid, { react: { text: command.emoji, key: m.key } });
                         }
 
-                        await command.execute(sock, m, args); // Execute command
-                        return; // Command found and executed, exit the loop
-
+                        await command.execute(sock, m, args);
+                        return;
                     } catch (error) {
-                        console.error(`Error executing command "${commandName}":`, error);
-                        if (m.key.remoteJid.endsWith('@s.whatsapp.net') || m.key.remoteJid.endsWith('@g.us')) {
-                            await sock.sendMessage(m.key.remoteJid, {
-                                text: `🚨 *Error executing command* \`"${commandName}"\`:\n\`\`\`${error}\`\`\``
-                            }, { quoted: m });
+                        if (error instanceof CommandError) {
+                            await sock.sendMessage(m.key.remoteJid, { text: `🚨 ${error.message}` }, { quoted: m });
+                        } else {
+                            const errorMessage = `Error executing command "${commandName}":\n\`\`\`${error.stack || error.message}\`\`\``;
+                            console.error(errorMessage);
+
+                            // Send error to developer (replace with actual developer's number)
+                            await sock.sendMessage(sock.user.id, { text: errorMessage });
+
+                            // Send user-friendly error message
+                            await sock.sendMessage(m.key.remoteJid, { text: `🚨 An error occurred while executing the command. The developer has been notified.` }, { quoted: m });
                         }
                     }
                 }
@@ -63,13 +70,10 @@ async function commandHandle(sock, m, commands) {
         }
     } catch (error) {
         console.error('Error handling command:', error);
-        if (m.key.remoteJid.endsWith('@s.whatsapp.net') || m.key.remoteJid.endsWith('@g.us')) {
-            await sock.sendMessage(m.key.remoteJid, {
-                text: `*🚨 Error handling command:*\n\`\`\`${error}\`\`\``
-            }, { quoted: m });
-        }
+        // Handle the error here, potentially send a generic error message to the user
     }
 }
+
 
 async function loadCommands() {
     const commands = {};

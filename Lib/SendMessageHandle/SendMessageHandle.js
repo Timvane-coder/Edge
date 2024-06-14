@@ -18,9 +18,8 @@ async function sendMessageHandle(sock) {
                         } else {
                             await sock.readMessages([m.key]);
                             await sock.sendPresenceUpdate('composing', m.key.remoteJid);
-                            await delay(500);
-                            const message = await sock.sendMessage(m.key.remoteJid, { text: text }, { quoted: m });
-                            await sock.sendPresenceUpdate('available', m.key.remoteJid);
+                            const message = sock.sendMessage(m.key.remoteJid, { text: text }, { quoted: m });
+                            await sock.sendPresenceUpdate('available', m.key.remoteJid); // Remove delay(500);
                             return message;
                         }
                     } catch (error) {
@@ -34,12 +33,11 @@ async function sendMessageHandle(sock) {
                         if (!m || !m.key || !emoji) {
                             throw new Error("Message object or key or Emoji is not available");
                         }
-                            await sock.readMessages([m.key]);
-                            await sock.sendPresenceUpdate('composing', m.key.remoteJid);
-                            await delay(500);
-                            const message = await sock.sendMessage(m.key.remoteJid, { react: { text: emoji, key: m.key } });
-                            await sock.sendPresenceUpdate('available', m.key.remoteJid);
-                            return message;
+                        await sock.readMessages([m.key]);
+                        await sock.sendPresenceUpdate('composing', m.key.remoteJid);
+                        const message = await sock.sendMessage(m.key.remoteJid, { react: { text: emoji, key: m.key } });
+                        await sock.sendPresenceUpdate('available', m.key.remoteJid);
+                        return message;
                     } catch (error) {
                         console.error("Failed to send Reaction:", error);
                         throw error;
@@ -54,7 +52,6 @@ async function sendMessageHandle(sock) {
 
                         await sock.readMessages([m.key]);
                         await sock.sendPresenceUpdate('composing', m.key.remoteJid);
-                        await delay(500);
                         const message = await sock.sendMessage(m.key.remoteJid, { image: imageBuffer, caption: caption }, { quoted: m });
                         await sock.sendPresenceUpdate('available', m.key.remoteJid);
                         return message;
@@ -72,7 +69,6 @@ async function sendMessageHandle(sock) {
 
                         await sock.readMessages([m.key]);
                         await sock.sendPresenceUpdate('recording', m.key.remoteJid);
-                        await delay(500);
                         const message = await sock.sendMessage(m.key.remoteJid, { audio: audioBuffer, mimetype: 'audio/mp4' }, { quoted: m });
                         await sock.sendPresenceUpdate('available', m.key.remoteJid);
                         return message;
