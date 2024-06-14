@@ -63,6 +63,7 @@ module.exports = {
 - **`emoji`**: 🎨 An emoji to visually represent the command.
 - **`isGroupOnly`**: 👥 A boolean indicating if the command should only work in group chats.
 - **`isChannelOnly`**: 📢 A boolean indicating if the command should only work in channels.
+- **`isWorkAll`**:👥 A boolean indicating if the command work in all mode (private/group/channels)
 - **`execute(sock, m, args)`**: The main function that gets executed when the command is called. It takes the following parameters:
   - `sock`: The WhatsApp socket instance.
   - `m`: The message object that triggered the command.
@@ -114,16 +115,30 @@ You can send different types of messages using the bot. Here are the supported t
 Here's an example of a simple "Hello" command to get you started:
 
 ```javascript
+const { HacxK } = require('../Lib/EventsHandle/EventsHandle');
+
 module.exports = {
-    usage: ['Hello'],
-    description: 'Greets the user with a friendly message!',
+    usage: ['Hi', 'Hello'],
+    description: 'Say hello!',
     emoji: '👋',
-    isGroupOnly: false,
-    isChannelOnly: false,
+    isGroupOnly: true,
+    isChannelOnly: true,
+    isWorkAll: false,
     async execute(sock, m, args) {
-        await hacxk.reply('Hello there! 👋 How can I assist you today?', m);
+        await sock.sendMessage(m.key.remoteJid, { text: 'Hello! 👋' }, { quoted: m });
+
+        // Listen for specific messages once and then stop listening
+        const listener = async (message) => {
+            if (message.message && message.message.conversation && message.message.conversation.toLowerCase() === 'Hello!') {
+                await sock.sendMessage(message.key.remoteJid, { text: 'Yo How Can I Help! You.' }, { quoted: message });
+                HacxK.off('hacxk.messages', listener); // Remove the listener
+            }
+        };
+
+        HacxK.on('hacxk.messages', listener);
     }
 };
+
 ```
 
 This command will reply with "Hello there! 👋 How can I assist you today?" whenever someone types "Hello".
