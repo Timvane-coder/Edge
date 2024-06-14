@@ -48,7 +48,7 @@ To create a new command, follow this enchanting structure. Each command is a mod
 
 > [!NOTE]
 >
-> Don't Need to Resatrt Whole NodeJS Process When Make Changes in Plugin Folder Commands (!Only Works New Update).
+> Don't Need to Restart Whole NodeJS Process When Make Changes in Plugin Folder Commands (!Only Works New Update).
 
 ```javascript
 module.exports = {
