@@ -113,7 +113,7 @@ You can send different types of messages using the bot. Here are the supported t
 
 # ✨ Event Listener: Your Baileys Bot ✨
 
-🚀 Unleash the magic of event-driven programming to make your Baileys bot smarter and more responsive! This module lets you listen for specific events and react with custom actions.
+🚀 This module lets you listen for specific events and react with custom actions.
 
 🎉 **Why Use Event Listeners?**
 
