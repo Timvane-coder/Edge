@@ -15,6 +15,8 @@ const { ownEvent } = require('../Lib/EventsHandle/EventsHandle');
 let commands;
 (async () => {
     commands = await loadCommands();
+    const pluginDir = path.join(__dirname, '../Plugins');
+    watchPlugins(pluginDir);
 })();
 
 // Set up logging
@@ -184,7 +186,7 @@ const startHacxkMDNews = async () => {
                 } catch (error) {
                     console.error(chalk.red('Error occurred during connection close:'), error.message);
                 }
-            }           
+            }
 
             // Enable read receipts
             sock.sendReadReceiptAck = true;
@@ -193,7 +195,7 @@ const startHacxkMDNews = async () => {
         sock.ev.on('creds.update', () => {
             sock.ev.removeAllListeners('creds.update'); // Remove previous listeners
             saveCreds();
-        }); 
+        });
 
         sock.ev.on('messages.upsert', async ({ messages }) => {
             for (const m of messages) {
@@ -245,5 +247,43 @@ const startHacxkMDNews = async () => {
     }
 };
 
-module.exports = { startHacxkMDNews };
+const debounceTimeout = 1000; // Adjust debounce time as needed (in milliseconds)
 
+function watchPlugins(pluginDir) {
+    let reloadTimeout;
+
+    fs.watch(pluginDir, { recursive: true }, (eventType, filename) => {
+        if (filename.endsWith('.js')) {
+            clearTimeout(reloadTimeout); // Debounce: Clear any pending reloads
+            reloadTimeout = setTimeout(async () => {
+                const commandPath = path.join(pluginDir, filename);
+
+                try {
+                    delete require.cache[require.resolve(commandPath)];
+                    const newCommandModule = require(commandPath);
+
+                    // Check if module is valid before registering
+                    if (typeof newCommandModule.execute === 'function' && newCommandModule.usage) {
+                        registerCommand(newCommandModule, commands);
+                        console.log(`[Hot Reload] Successfully reloaded ${filename}`);
+                    } else {
+                        console.warn(`[Hot Reload] Skipped ${filename}: Invalid command module format.`);
+                    }
+                } catch (error) {
+                    console.error(`[Hot Reload] Error reloading ${filename}: ${error.message}`);
+                    // Optionally: Log the full error stack for debugging
+                    // console.error(error.stack); 
+                }
+            }, debounceTimeout);
+        }
+    });
+}
+
+function registerCommand(commandModule, commands) {
+    if (commandModule.usage) {
+        const commandName = commandModule.usage;
+        commands[commandName] = commandModule;
+    }
+}
+
+module.exports = { startHacxkMDNews };
