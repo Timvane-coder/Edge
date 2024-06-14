@@ -121,32 +121,51 @@ You can send different types of messages using the bot. Here are the supported t
 * ⚡️ **Efficiency:** Your bot doesn't have to constantly check for things.
 * 🧠 **Flexibility:** Build complex interactions and workflows.
 
+# 📖 Event Handling with HacxK
+
+Welcome to the HacxK event handling guide! This guide will walk you through the process of setting up and using event listeners in your bot using the `HacxK` event emitter.
+
 ## 💡 How It Works
 
-1. **Import HacxK:**  The `HacxK` object is your gateway to event handling.
+1. **Import HacxK:**  
+   The `HacxK` object is your gateway to event handling.
    ```javascript
-   const { HacxK } = require('../Lib/EventsHandle/EventsHandle'); // Import the HacxK event emitter```
-3. **Choose Your Event:** We'll focus on the `hacxk.messages` event, which triggers when a new message is received.
-   ```javascript
-  HacxK.on('hacxk.messages', listener);```
-5. **Create a Listener:** Write a function to define how your bot should react when the event occurs.
-   ```javascript
- // Example Function !You Can Also Write Your Own Function/Logic
- // 👂 Listen for "Hello!" replies only once
-        const listener = async (message) => {
-            if (message.message && message.message.conversation && message.message.conversation.toLowerCase() === 'hello!') {
-                await sock.sendMessage(message.key.remoteJid, { text: 'Yo! How can I help you?' }, { quoted: message });
-                HacxK.off('hacxk.messages', listener); // Stop listening after responding
-            }
-        };
+   const { HacxK } = require('../Lib/EventsHandle/EventsHandle'); // Import the HacxK event emitter
+   ```
 
-        HacxK.on('hacxk.messages', listener);
-```
-6. **Attach the Listener:** Use `HacxK.on` to connect your function to the event.
-   ```HacxK.on```
-8. **(Optional) Remove the Listener:**  For one-time actions, use `HacxK.off` to stop listening after you've reacted.
-```javascript
-HacxK.off('hacxk.messages', listener); // Stop listening after responding```
+2. **Choose Your Event:**  
+   We'll focus on the `hacxk.messages` event, which triggers when a new message is received.
+   ```javascript
+   HacxK.on('hacxk.messages', listener);
+   ```
+
+3. **Create a Listener:**  
+   Write a function to define how your bot should react when the event occurs.
+   ```javascript
+   // Example Function! You Can Also Write Your Own Function/Logic
+   // 👂 Listen for "Hello!" replies only once
+   const listener = async (message) => {
+       if (message.message && message.message.conversation && message.message.conversation.toLowerCase() === 'hello!') {
+           await sock.sendMessage(message.key.remoteJid, { text: 'Yo! How can I help you?' }, { quoted: message });
+           HacxK.off('hacxk.messages', listener); // Stop listening after responding
+       }
+   };
+
+   HacxK.on('hacxk.messages', listener);
+   ```
+
+4. **Attach the Listener:**  
+   Use `HacxK.on` to connect your function to the event.
+   ```javascript
+   HacxK.on('hacxk.messages', listener);
+   ```
+
+5. **(Optional) Remove the Listener:**  
+   For one-time actions, use `HacxK.off` to stop listening after you've reacted.
+   ```javascript
+   HacxK.off('hacxk.messages', listener); // Stop listening after responding
+   ```
+`
 
 ## 🛠️ Example: A Friendly Greeting Bot
 
