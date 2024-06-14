@@ -46,6 +46,10 @@ To create a new command, follow this enchanting structure. Each command is a mod
 
 > 📝 To create a command, first create a `filename.js` in the Plugins folder.
 
+> [!NOTE]
+>
+> Don't Need to Resatrt Whole NodeJS Process When Make Changes in Plugin Folder Commands (!Only Works New Update).
+
 ```javascript
 module.exports = {
     usage: ['Hi'], // 🎯 Command usage trigger
