@@ -1,4 +1,4 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore, makeInMemoryStore, delay, Browsers } = require("@whiskeysockets/baileys");
+const { default: makeWASocket, useMultiFileAuthState, jidDecode, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore, makeInMemoryStore, delay, Browsers } = require("@whiskeysockets/baileys");
 const path = require('path');
 const pino = require('pino');
 const { Boom } = require("@hapi/boom");
@@ -84,6 +84,57 @@ const startHacxkMDNews = async () => {
             maxMsgRetryCount: 10,
             retryRequestDelayMs: 500,
             getMessage,
+            patchMessageBeforeSending: async (msg, recipientJids) => {
+                for (const jid of recipientJids) {
+                    await sock.presenceSubscribe(jid);
+
+                    const messageType = Object.keys(msg)[0];
+
+                    // Audio Message Handling
+                    if (messageType === 'audioMessage') {
+                        await sock.sendPresenceUpdate('recording', jid);
+                        const audioDuration = msg.audio.seconds || 5; // Estimate duration if not provided
+                        await delay(audioDuration * 1000); // Simulate recording based on duration
+                        await sock.sendPresenceUpdate('paused', jid);
+                        await delay(500);
+                    }
+
+                    // Text Message Handling
+                    else if (messageType === 'extendedTextMessage' || messageType === 'conversation') {
+                        await sock.sendPresenceUpdate('composing', jid);
+                        await delay(500)
+                        await sock.sendPresenceUpdate('paused', jid);
+                    }
+
+                    // Image/Video/Document Handling (Optional)
+                    else {
+                        await sock.sendPresenceUpdate('composing', jid);
+                        await delay(1000); // Simulate processing time
+                        await sock.sendPresenceUpdate('paused', jid);
+                    }
+
+                    // ViewOnce Patch (Improved)
+                    const requiresPatch = !!(
+                        msg.buttonsMessage ||
+                        msg.templateMessage ||
+                        msg.listMessage
+                    );
+                    if (requiresPatch) {
+                        message = {
+                            viewOnceMessage: {
+                                message: {
+                                    messageContextInfo: {
+                                        deviceListMetadataVersion: 2,
+                                        deviceListMetadata: {},
+                                    },
+                                    ...msg,
+                                },
+                            },
+                        };
+                    }
+                }
+                return msg;
+            },
         });
 
         store?.bind(sock.ev);
