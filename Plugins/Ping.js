@@ -5,6 +5,7 @@ module.exports = {
     commandType: 'Utility', // Add command type categorization
     isWorkAll: true,
     async execute(sock, m) {
+        console.log('ping')
         const startTime = Date.now();
         const pingMessage = await sock.sendMessage(m.key.remoteJid, { text: '⚡ Pinging...' }, { quoted: m });
         const endTime = Date.now();

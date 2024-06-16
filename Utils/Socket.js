@@ -86,55 +86,22 @@ const startHacxkMDNews = async () => {
             getMessage,
             patchMessageBeforeSending: async (msg, recipientJids) => {
                 for (const jid of recipientJids) {
-                    await sock.presenceSubscribe(jid);
-
                     const messageType = Object.keys(msg)[0];
-
-                    // Audio Message Handling
+                    // Optimize presence updates based on message type
                     if (messageType === 'audioMessage') {
                         await sock.sendPresenceUpdate('recording', jid);
                         const audioDuration = msg.audio.seconds || 5; // Estimate duration if not provided
-                        await delay(audioDuration * 1000); // Simulate recording based on duration
+                        await delay(audioDuration * 100); // Reduce delay time
                         await sock.sendPresenceUpdate('paused', jid);
-                        await delay(500);
-                    }
-
-                    // Text Message Handling
-                    else if (messageType === 'extendedTextMessage' || messageType === 'conversation') {
+                        await delay(100); // Reduce delay time
+                    } else {
                         await sock.sendPresenceUpdate('composing', jid);
-                        await delay(500)
+                        await delay(100); // Reduce delay time
                         await sock.sendPresenceUpdate('paused', jid);
-                    }
-
-                    // Image/Video/Document Handling (Optional)
-                    else {
-                        await sock.sendPresenceUpdate('composing', jid);
-                        await delay(1000); // Simulate processing time
-                        await sock.sendPresenceUpdate('paused', jid);
-                    }
-
-                    // ViewOnce Patch (Improved)
-                    const requiresPatch = !!(
-                        msg.buttonsMessage ||
-                        msg.templateMessage ||
-                        msg.listMessage
-                    );
-                    if (requiresPatch) {
-                        message = {
-                            viewOnceMessage: {
-                                message: {
-                                    messageContextInfo: {
-                                        deviceListMetadataVersion: 2,
-                                        deviceListMetadata: {},
-                                    },
-                                    ...msg,
-                                },
-                            },
-                        };
                     }
                 }
                 return msg;
-            },
+            }
         });
 
         store?.bind(sock.ev);
