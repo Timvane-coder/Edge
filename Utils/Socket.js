@@ -68,9 +68,9 @@ const startHacxkMDNews = async () => {
             version: version,
             printQRInTerminal: pairingOption === 'QR CODE',
             mobile: false,
-            shouldSyncHistoryMessage: true,
-            syncFullHistory: true,
-            downloadHistory: true,
+            shouldSyncHistoryMessage: false,
+            syncFullHistory: false,
+            downloadHistory: false,
             msgRetryCounterCache,
             logger: pino({ level: "silent" }),
             browser: Browsers.ubuntu("Chrome"),  // Else Put This   browser: ["Ubuntu", "Chrome", "20.0.04"], Don't Remove this commented
@@ -81,30 +81,33 @@ const startHacxkMDNews = async () => {
             },
             linkPreviewImageThumbnailWidth: 1980,
             generateHighQualityLinkPreview: true,
-            maxMsgRetryCount: 10,
-            retryRequestDelayMs: 500,
-            getMessage,
-            patchMessageBeforeSending: async (msg, recipientJids) => {
-                for (const jid of recipientJids) {
-                    const messageType = Object.keys(msg)[0];
-                    // Optimize presence updates based on message type
-                    if (messageType === 'audioMessage') {
-                        await sock.sendPresenceUpdate('recording', jid);
-                        const audioDuration = msg.audio.seconds || 5; // Estimate duration if not provided
-                        await delay(audioDuration * 100); // Reduce delay time
-                        await sock.sendPresenceUpdate('paused', jid);
-                        await delay(100); // Reduce delay time
-                    } else {
-                        await sock.sendPresenceUpdate('composing', jid);
-                        await delay(100); // Reduce delay time
-                        await sock.sendPresenceUpdate('paused', jid);
-                    }
-                }
-                return msg;
-            }
+            maxMsgRetryCount: 5,
+            retryRequestDelayMs: 100,
+            //    getMessage,
+            // patchMessageBeforeSending: async (msg, recipientJids) => {
+            //     for (const jid of recipientJids) {
+            //         const messageType = Object.keys(msg)[0];
+            //         // Optimize presence updates based on message type
+            //         if (messageType === 'audioMessage') {
+            //             await sock.sendPresenceUpdate('recording', jid);
+            //             const audioDuration = msg.audio.seconds || 5; // Estimate duration if not provided
+            //             await delay(audioDuration * 100); // Reduce delay time
+            //             await sock.sendPresenceUpdate('paused', jid);
+            //             await delay(100); // Reduce delay time
+            //         } else {
+            //             await sock.sendPresenceUpdate('composing', jid);
+            //             await delay(100); // Reduce delay time
+            //             await sock.sendPresenceUpdate('paused', jid);
+            //         }
+            //     }
+            //     return msg;
+            // }
         });
 
         store?.bind(sock.ev);
+
+        // Socket.js -- This is For Listening User Option!
+        await ownEvent(sock);
 
         sock.ev.on('connection.update', async ({ receivedPendingNotifications }) => {
             sock.ev.flush(true);
@@ -141,7 +144,6 @@ const startHacxkMDNews = async () => {
                 console.log(chalk.cyan('Connected! 🔒✅'));
                 await sendMessageHandle(sock);
                 await sock.sendMessage(sock.user.id, { text: '*Bot Is Online!*' });
-
                 return new Promise((resolve, reject) => {
                     setTimeout(async () => {
                         try {
@@ -218,30 +220,10 @@ const startHacxkMDNews = async () => {
         sock.ev.on('messages.upsert', async ({ messages }) => {
             for (const m of messages) {
                 try {
-                    await handleMessage(m);
-                    await commandHandle(sock, m, commands);
+                    commandHandle(sock, m, commands);
+                    handleMessage(m);
                 } catch (error) {
-                    if (error.message.includes('waiting for message')) {
-                        // Send a message to the user acknowledging the issue
-                        await sock.sendMessage(m.key.remoteJid, {
-                            text: "This message is encrypted and can't be read yet. Please wait for a few moments while it is decrypted."
-                        });
-                    } else if (error.message.includes('waiting for message') && retryCount < 3) {
-                        // Retry decryption a few times before falling back
-                        setTimeout(async () => {
-                            try {
-                                await handleMessage(m);
-                                await commandHandle(sock, m, commands);
-                            } catch (error) {
-                                console.error(chalk.red('Retry failed:'), error.message);
-                                // Fallback option: Inform the user and offer a solution
-                                await sock.sendMessage(m.key.remoteJid, {
-                                    text: "This message could not be decrypted. Please check your WhatsApp on your phone or contact support for assistance."
-                                });
-                            }
-                        }, 5000); // Retry after 5 seconds
-                        retryCount++;
-                    }
+                    console.log(error)
                 }
             }
         });
@@ -255,10 +237,6 @@ const startHacxkMDNews = async () => {
             // Only if store is present
             return proto.Message.fromObject({});
         }
-
-        // Socket.js -- This is For Listening User Option!
-        await ownEvent(sock);
-
 
     } catch (error) {
         console.error(chalk.red('An error occurred:'), error.message);
