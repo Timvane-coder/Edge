@@ -1,4 +1,5 @@
 const axios = require('axios');
+const moment = require('moment-timezone'); // For timezone-aware date/time formatting
 
 module.exports = {
     usage: ['exchange'],
@@ -13,18 +14,20 @@ module.exports = {
 
         if (isNaN(amount) || !fromCurrency || !toCurrency) {
             const usageText = `
-╭───────── 💱 Exchange Rates 💱 ─────────╮
-│                                                  │
-│ Usage: /exchange [amount] [from currency] [to currency] │
-│ Example: /exchange 100 USD LKR                   │
-│                                                  │
-╰──────────────────────────────────────╯
-            `;
+╭• ─────────── ✾ ─────────── •╮
+┊ 💱  Exchange Rates 💱 
+╰• ─────────── ✾ ─────────── •╯
+
+╭─── ･ ｡ﾟ☆: *.☽ .* :☆ﾟ. ───╮
+┊ *Usage:* /exchange [amount] [from] [to]
+┊ *Example:* /exchange 100 USD EUR
+╰─── ･ ｡ﾟ☆: *.☽ .* :☆ﾟ. ───╯
+`;
             return await sock.sendMessage(m.key.remoteJid, { text: usageText }, { quoted: m });
         }
 
         try {
-            const response = await axios.get(`https://api.exchangerate.host/latest?base=${fromCurrency}&symbols=${toCurrency}`); // Free API
+            const response = await axios.get(`https://api.exchangerate.host/latest?base=${fromCurrency}&symbols=${toCurrency}`);
             const rates = response.data.rates;
 
             if (!rates[toCurrency]) {
@@ -33,30 +36,34 @@ module.exports = {
 
             const convertedAmount = (amount * rates[toCurrency]).toFixed(2);
 
-            // Premium UI with Date and Time
-            const now = new Date();
-            const dateTime = now.toLocaleString('en-US', { timeZoneName: 'short' });
+            // Premium UI with Enhanced Styling & User Timezone
+            const userTimezone = moment.tz.guess(); 
+            const dateTime = moment().tz(userTimezone).format('YYYY-MM-DD hh:mm A z'); 
 
             const resultText = `
-╭───── 💱 Exchange Result 💱 ─────╮
-│                                 │
-│   ${amount} ${fromCurrency}  =  ${convertedAmount} ${toCurrency}   │
-│                                 │
-│   As of: ${dateTime}     │
-│                                 │
-╰─────────────────────╯
-            `;
+╭• ─────────── ✾ ─────────── •╮
+┊  💱 Exchange Result 💱
+╰• ─────────── ✾ ─────────── •╯
+
+╭─━━━━━━⊱✿⊰━━━━━━─╮
+┊ ${amount} ${fromCurrency} = ${convertedAmount} ${toCurrency}
+┊ *As of:* ${dateTime} (Your Time)
+╰─━━━━━━⊱✿⊰━━━━━━─╯
+`;
 
             await sock.sendMessage(m.key.remoteJid, { text: resultText }, { quoted: m });
         } catch (error) {
+            console.error("Error fetching exchange rates:", error);
             const errorMessage = `
-╭───────── ⚠️ Error ⚠️ ─────────╮
-│                                 │
-│   Error fetching exchange rates.  │
-│   Please try again later.        │
-│                                 │
-╰─────────────────────────╯
-            `;
+╭• ─────────── ✾ ─────────── •╮
+┊ ⚠️  Error  ⚠️ 
+╰• ─────────── ✾ ─────────── •╯
+
+╭─━━━━━━⊱✿⊰━━━━━━─╮
+┊ Error fetching exchange rates.
+┊ Please try again later.
+╰─━━━━━━⊱✿⊰━━━━━━─╯
+`;
             await sock.sendMessage(m.key.remoteJid, { text: errorMessage }, { quoted: m });
         }
     }

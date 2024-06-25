@@ -1,4 +1,4 @@
-const { default: makeWASocket, useMultiFileAuthState, jidDecode, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore, makeInMemoryStore, delay, Browsers } = require("@whiskeysockets/baileys");
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore, makeInMemoryStore, delay } = require("@whiskeysockets/baileys");
 const path = require('path');
 const pino = require('pino');
 const { Boom } = require("@hapi/boom");
@@ -17,7 +17,18 @@ let commands;
     commands = await loadCommands();
     const pluginDir = path.join(__dirname, '../Plugins');
     watchPlugins(pluginDir);
+    refreshSettings();
 })();
+
+async function refreshSettings() {
+    try {
+        delete require.cache[require.resolve('../Settings')];
+        require('../Settings')
+        return
+    } catch (error) {
+        console.error('Error refreshing settings:', error.message);
+    }
+}
 
 // Set up logging
 const logger = pino({ level: 'silent' });
@@ -65,53 +76,61 @@ const startHacxkMDNews = async () => {
         }
 
         const sock = await makeWASocket({
-            version: version,
+            version: [2, 3000, 1014080102],
             printQRInTerminal: pairingOption === 'QR CODE',
             mobile: false,
-            shouldSyncHistoryMessage: false,
+            keepAliveIntervalMs: 10000,
             syncFullHistory: false,
             downloadHistory: false,
-            msgRetryCounterCache,
-            logger: pino({ level: "silent" }),
-            browser: Browsers.ubuntu("Chrome"),  // Else Put This   browser: ["Ubuntu", "Chrome", "20.0.04"], Don't Remove this commented
+            markOnlineOnConnect: true,
+            defaultQueryTimeoutMs: undefined,
+            logger,
+            Browsers: ['Hacxk-MD', 'Chrome', '113.0.5672.126'],
             auth: {
                 creds: state.creds,
-                /** caching makes the store faster to send/recv messages */
                 keys: makeCacheableSignalKeyStore(state.keys, logger),
             },
             linkPreviewImageThumbnailWidth: 1980,
             generateHighQualityLinkPreview: true,
-            maxMsgRetryCount: 5,
-            retryRequestDelayMs: 100,
-            //    getMessage,
-            // patchMessageBeforeSending: async (msg, recipientJids) => {
-            //     for (const jid of recipientJids) {
-            //         const messageType = Object.keys(msg)[0];
-            //         // Optimize presence updates based on message type
-            //         if (messageType === 'audioMessage') {
-            //             await sock.sendPresenceUpdate('recording', jid);
-            //             const audioDuration = msg.audio.seconds || 5; // Estimate duration if not provided
-            //             await delay(audioDuration * 100); // Reduce delay time
-            //             await sock.sendPresenceUpdate('paused', jid);
-            //             await delay(100); // Reduce delay time
-            //         } else {
-            //             await sock.sendPresenceUpdate('composing', jid);
-            //             await delay(100); // Reduce delay time
-            //             await sock.sendPresenceUpdate('paused', jid);
-            //         }
-            //     }
-            //     return msg;
-            // }
-        });
+            patchMessageBeforeSending: async (msg, recipientJids) => {
+                const messageType = Object.keys(msg)[0];
+                const messageContent = msg[messageType]?.text || msg[messageType]?.caption || '';
 
-        store?.bind(sock.ev);
+                // Default typing delay settings
+                const defaultTypingDelay = {
+                    min: 400, // Minimum delay in milliseconds
+                    max: 800, // Maximum delay in milliseconds
+                    longMessageThreshold: 300, // Characters
+                };
+
+                // Merge default and custom settings (if available)
+                const typingDelay = { ...defaultTypingDelay, ...(settings.typingDelay || {}) };
+                const messageLength = messageContent.length;
+
+                // Handle audio messages
+                if (messageType === 'audioMessage') {
+                    await sock.sendPresenceUpdate('recording', recipientJids[0]);
+                    const audioDuration = msg.audioMessage.seconds || 5; // Estimate duration if not provided
+                    await delay(audioDuration * 1000); // Wait for the audio duration
+                    await sock.sendPresenceUpdate('paused', recipientJids[0]);
+                    return msg;
+                }
+
+                // Handle text or caption messages
+                const typingDuration = messageLength > typingDelay.longMessageThreshold
+                    ? typingDelay.max
+                    : (Math.random() * (typingDelay.max - typingDelay.min) + typingDelay.min);
+
+                await sock.sendPresenceUpdate('composing', recipientJids[0]);
+                await delay(typingDuration);
+                await sock.sendPresenceUpdate('paused', recipientJids[0]);
+                return msg;
+            }
+        });
 
         // Socket.js -- This is For Listening User Option!
         await ownEvent(sock);
 
-        sock.ev.on('connection.update', async ({ receivedPendingNotifications }) => {
-            sock.ev.flush(true);
-        });
 
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
@@ -184,8 +203,8 @@ const startHacxkMDNews = async () => {
                             return;
                         case DisconnectReason.restartRequired:
                             console.log(chalk.cyan('Restart required, restarting... 🔄'));
-                            await delay(1000);
-                            sock.ev.removeAllListeners();
+                            await delay(5000);
+                            // sock.ev.removeAllListeners();
                             startHacxkMDNews();
                             return;
                         case DisconnectReason.timedOut:
@@ -208,49 +227,43 @@ const startHacxkMDNews = async () => {
                 }
             }
 
-            // Enable read receipts
+            //    // Enable read receipts
             sock.sendReadReceiptAck = true;
         });
 
-        sock.ev.on('creds.update', () => {
-            sock.ev.removeAllListeners('creds.update'); // Remove previous listeners
-            saveCreds();
-        });
+        sock.ev.on('creds.update', saveCreds);
 
-        sock.ev.on('messages.upsert', async ({ messages }) => {
-            for (const m of messages) {
-                try {
-                    commandHandle(sock, m, commands);
-                    handleMessage(m);
-                } catch (error) {
-                    console.log(error)
-                }
-            }
-        });
 
-        async function getMessage(key) {
-            if (store) {
-                const msg = await store.loadMessage(key.remoteJid, key.id);
-                return msg?.message || undefined;
-            }
+        await test(sock)
 
-            // Only if store is present
-            return proto.Message.fromObject({});
-        }
 
     } catch (error) {
         console.error(chalk.red('An error occurred:'), error.message);
     }
 };
 
-const debounceTimeout = 1000; // Adjust debounce time as needed (in milliseconds)
+async function test(sock) {
+    sock.ev.on('messages.upsert', async ({ messages }) => {
+        console.log(messages[0])
+        for (const m of messages) {
+            try {
+                await commandHandle(sock, m, commands);
+                await handleMessage(m);
+            } catch (error) {
+                console.log(error)
+            }
+        }
+    });
+}
+
+const debounceTimeout = 2000;
 
 function watchPlugins(pluginDir) {
     let reloadTimeout;
 
     fs.watch(pluginDir, { recursive: true }, (eventType, filename) => {
         if (filename.endsWith('.js')) {
-            clearTimeout(reloadTimeout); // Debounce: Clear any pending reloads
+            clearTimeout(reloadTimeout);
             reloadTimeout = setTimeout(async () => {
                 const commandPath = path.join(pluginDir, filename);
 
@@ -267,8 +280,23 @@ function watchPlugins(pluginDir) {
                     }
                 } catch (error) {
                     console.error(`[Hot Reload] Error reloading ${filename}: ${error.message}`);
-                    // Optionally: Log the full error stack for debugging
-                    // console.error(error.stack); 
+                }
+            }, debounceTimeout);
+        }
+    });
+
+    // Watch for changes in Settings.js in the root folder
+    fs.watch(path.join(__dirname, '../Settings.js'), (eventType) => {
+        if (eventType === 'change') {
+            // Debounce here as well, if needed
+            clearTimeout(reloadTimeout);
+            reloadTimeout = setTimeout(() => {
+                try {
+                    delete require.cache[require.resolve('../Settings.js')];
+                    refreshSettings(); // Call your refreshSettings function
+                    console.log('\x1b[35m%s\x1b[0m', '[Hot Reload] Settings.js reloaded');
+                } catch (error) {
+                    console.error('[Hot Reload] Error reloading Settings.js:', error.message);
                 }
             }, debounceTimeout);
         }

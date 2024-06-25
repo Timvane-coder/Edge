@@ -4,7 +4,7 @@ module.exports = {
     usage: ['wyr'],
     description: 'Play a round of "Would You Rather?"',
     emoji: '🤔',
-    commandType: 'Fun', // Add the commandType here
+    commandType: 'Fun',
     isWorkAll: true,
     async execute(sock, m) {
         try {
@@ -12,24 +12,33 @@ module.exports = {
             const questionData = response.data;
 
             const wyrText = `
-┏━━━━━━🤔  WOULD YOU RATHER...?  🤔━━━━━━┓
-┃                                          ┃
-┃  ${questionData.question}                  ┃ 
-┃                                          ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-            `;
+╭• ─────────── ✾ ─────────── •╮
+┊  🤔  Would You Rather... ? 🤔 
+╰• ─────────── ✾ ─────────── •╯
 
-            // Send the question as a reply with the question mark emoji
-            await sock.sendMessage(m.key.remoteJid, { text: wyrText }, { quoted: m, mentions: [m.sender] }); 
+╭─── ･ ｡ﾟ☆: *.☽ .* :☆ﾟ. ───╮
+┊ ${questionData.question}
+╰─── ･ ｡ﾟ☆: *.☽ .* :☆ﾟ. ───╯
 
-            // Encourage participation
-            await sock.sendMessage(m.key.remoteJid, { 
-                text: "Reply with 'A' or 'B' to choose your answer! 💬",
-                mentions: [m.sender] 
-            });
+╭──────────────────────╮
+┊ 🅰️   ${questionData.option_1}
+╰──────────────────────╯
+╭──────────────────────╮
+┊ 🅱️   ${questionData.option_2}
+╰──────────────────────╯
+
+╭┈─────── ೄྀ࿐ ˊˎ-
+┊ Choose wisely! ✨
+╰───────────────┈ ἤ
+`;
+
+            await sock.sendMessage(m.key.remoteJid, { text: wyrText }, { quoted: m, mentions: [m.sender] });
 
         } catch (error) {
-            await sock.sendMessage(m.key.remoteJid, { text: 'Error fetching "Would You Rather?" question. Please try again later.' }, { quoted: m });
+            console.error("Error fetching WYR question:", error);
+            await sock.sendMessage(m.key.remoteJid, { 
+                text: '✨ Oops! I couldn\'t find a "Would You Rather?" question right now. Try again later! ✨'
+            }, { quoted: m });
         }
     }
 };

@@ -11,7 +11,7 @@ app.use(express.urlencoded({ extended: true }));
 // Define your other routes here (e.g., API endpoints, etc.)
 
 app.get('/', (req, res) => {
-    res.send('Status: Working!');
+    res.send('<h1>Working</h1>');
 });
 
 // Error handling (move this to the end of your middleware stack)

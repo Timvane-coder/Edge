@@ -4,7 +4,7 @@ module.exports = {
     usage: ['recipe'],
     description: 'Find recipes based on ingredients',
     emoji: '🍳',
-    commandType: 'Utility', // Add command type for categorization
+    commandType: 'Search', // Add command type for categorization
     isWorkAll: true,
     async execute(sock, m, args) {
         const ingredients = args.join(' ');

@@ -10,71 +10,105 @@ class CommandError extends Error {
 }
 
 async function commandHandle(sock, m, commands) {
-    const com = commands
     try {
         let text = '';
         if (m.message && m.message.conversation) {
             text = m.message.conversation.toLowerCase();
         } else if (m.message && m.message.extendedTextMessage && m.message.extendedTextMessage.text) {
             text = m.message.extendedTextMessage.text.toLowerCase();
+        } else if (m.message) {
+            for (const key of Object.keys(m.message)) {
+                if (m.message[key]?.caption) {
+                    text = m.message[key].caption.toLowerCase();
+                    break;
+                }
+            }
         } else {
-            return; // Skip non-text messages
+            return;
         }
 
-        if (text.startsWith('!') || text.startsWith('.' || text.startsWith('/'))) {
-            const commandName = text.slice(1).split(' ')[0];
-            const args = text.slice(1 + commandName.length).trim().split(' ');
+        const commandPrefixes = ['!', '.', '/'];
+        const sender = getSenderFromGroupMessage(m);
+        const prefix = commandPrefixes.find(p => text.startsWith(p));
+        if (!prefix) return;
 
-            for (const commandKey in commands) {
-                const command = commands[commandKey];
-                const usages = Array.isArray(command.usage) ? command.usage.map(usage => usage.toLowerCase()) : [command.usage.toLowerCase()];
+        const [commandName, ...args] = text.slice(prefix.length).trim().split(/\s+/);
+        const command = Object.values(commands).find(cmd => {
+            const usages = Array.isArray(cmd.usage) ? cmd.usage.map(u => u.toLowerCase()) : [cmd.usage.toLowerCase()];
+            return usages.includes(commandName);
+        });
 
-                if (usages.includes(commandName)) {
-                    try {
-                        // **** Improved Work Mode Logic ****
-                        let isValidChat = command.isWorkAll; 
+        if (!command) {
+            await sock.sendMessage(m.key.remoteJid, { text: `🚨 Command not found: "${commandName}"` }, { quoted: m });
+            return;
+        }
 
-                        if (!isValidChat) {
-                            isValidChat = (command.isChannelOnly && m.key.remoteJid.endsWith('@newsletter')) ||
-                                          (command.isGroupOnly && m.key.remoteJid.endsWith('@g.us'));
-                        }
+        // Check if the command is allowed in the current chat context
+        if (settings.workMode.toLowerCase() === 'private' && m.key.remoteJid.endsWith('@g.us')) { // Group chat
+            await sock.sendMessage(m.key.remoteJid, { react: { text: '❌', key: m.key } });
+            return
+        }
 
-                        if (!isValidChat) {
-                            throw new CommandError(
-                                `This command can only be used in ${command.isChannelOnly ? 'Channels' : command.isGroupOnly ? 'Groups' : 'Unsupported chats'}.`,
-                                commandName
-                            );
-                        }
-
-                        if (command.emoji) {
-                            await sock.sendMessage(m.key.remoteJid, { react: { text: command.emoji, key: m.key } });
-                        }
-
-                        await command.execute(sock, m, args, com);
-                        return;
-                    } catch (error) {
-                        if (error instanceof CommandError) {
-                            await sock.sendMessage(m.key.remoteJid, { text: `🚨 ${error.message}` }, { quoted: m });
-                        } else {
-                            const errorMessage = `Error executing command "${commandName}":\n\`\`\`${error.stack || error.message}\`\`\``;
-                            console.error(errorMessage);
-
-                            // Send error to developer (replace with actual developer's number)
-                            await sock.sendMessage(sock.user.id, { text: errorMessage });
-
-                            // Send user-friendly error message
-                            await sock.sendMessage(m.key.remoteJid, { text: `🚨 An error occurred while executing the command. The developer has been notified.` }, { quoted: m });
-                        }
-                    }
+        if (command.isAdminUse &&
+            m.key.fromMe !== true &&
+            !settings.ownerNumbers.includes(sender)) {
+            await sock.sendMessage(m.key.remoteJid, {
+                react: {
+                    text: '⚠️',
+                    key: m.key
                 }
+            });
+            return await sock.sendMessage(m.key.remoteJid, {
+                text: `
+╭• ─────────── ✾ ─────────── •╮
+┊ ⚠️  Admin Only Command  ⚠️ 
+╰• ─────────── ✾ ─────────── •╯
+
+╭─── ･ ｡ﾟ☆: *.☽ .* :☆ﾟ. ───╮
+┊ Sorry, this command is only for admins
+┊ or the bot owner.
+╰─── ･ ｡ﾟ☆: *.☽ .* :☆ﾟ. ───╯
+`
+            }, { quoted: m });
+        }
+
+        try {
+            const isValidChat = command.isWorkAll ||
+                (command.isChannelOnly && m.key.remoteJid.endsWith('@newsletter')) ||
+                (command.isGroupOnly && m.key.remoteJid.endsWith('@g.us'));
+
+            if (!isValidChat) {
+                throw new CommandError(
+                    `This command can only be used in ${command.isChannelOnly ? 'Channels' : command.isGroupOnly ? 'Groups' : 'Unsupported chats'}.`,
+                    commandName
+                );
+            }
+
+            if (command.emoji) {
+                await sock.sendMessage(m.key.remoteJid, { react: { text: command.emoji, key: m.key } });
+            }
+
+            await sock.readMessages([m.key]);
+            await command.execute(sock, m, args, commands); // Pass commands if needed
+            return
+        } catch (error) {
+            if (error instanceof CommandError) {
+                await sock.sendMessage(m.key.remoteJid, { text: `🚨 ${error.message}` }, { quoted: m });
+            } else {
+                const errorMessage = `Error executing command "${commandName}":\n\`\`\`${error.stack || error.message}\`\`\``;
+                console.error(errorMessage);
+
+                // Send error to developer (replace with actual developer's number)
+                await sock.sendMessage(sock.user.id, { text: errorMessage });
+
+                // Send user-friendly error message
+                await sock.sendMessage(m.key.remoteJid, { text: `🚨 An error occurred while executing the command. The developer has been notified.` }, { quoted: m });
             }
         }
     } catch (error) {
         console.error('Error handling command:', error);
-        // Handle the error here, potentially send a generic error message to the user
     }
 }
-
 
 async function loadCommands() {
     const commands = {};
@@ -106,5 +140,14 @@ async function loadCommands() {
 
     return commands;
 }
+
+function getSenderFromGroupMessage(m) {
+    if (m.key.remoteJid.endsWith('@g.us')) { // Check if it's a group chat
+        return m.key.participant.split('@')[0]; // Extract participant ID for group chats
+    } else {
+        return m.key.remoteJid.split('@')[0]; // For individual chats, return the remoteJid directly
+    }
+}
+
 
 module.exports = { commandHandle, loadCommands };

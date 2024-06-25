@@ -36,7 +36,7 @@ module.exports = {
         const shuffledTypes = shuffleArray(Object.keys(commandTypes));
 
         // Menu Configuration (Customize this!)
-        const menuTitle = "  🌸  Ｈ Ａ Ｃ Ｘ Ｋ  🌸   "; 
+        const menuTitle =   `🌸  ${settings.botMenuTitle}  🌸`; 
         const menuSeparator = "╭• ─────────── ✾ ─────────── •╮"; 
         const infoEmoji = "📜"; 
         const ownerEmoji = "👤"; 
@@ -47,7 +47,7 @@ ${menuSeparator}
 ${menuSeparator}
 
 ╭─── ･ ｡ﾟ☆: *.☽ .* :☆ﾟ. ───╮
-┊ ✧ *ɴᴀᴍᴇ:* 𝐇𝐀𝐂𝐗𝐊
+┊ ✧ *ɴᴀᴍᴇ:* ${settings.botName}
 ┊ ✧ *ᴠᴇʀꜱɪᴏɴ:* 1.0
 ┊ ✧ *ᴜᴘᴛɪᴍᴇ:* ${formatUptime(botUptime)}
 ╰─── ･ ｡ﾟ☆: *.☽ .* :☆ﾟ. ───╯
@@ -55,7 +55,7 @@ ${menuSeparator}
 ╭─── ･ ｡ﾟ☆: *.☽ .* :☆ﾟ. ───╮
 ┊ ✧ *ᴘʀᴇꜰɪx:* '/ . !'
 ┊ ✧ *ᴘɪɴɢ:* ${responseTime}ms
-┊ ✧ *ᴏᴡɴᴇʀ:* 𝐙𝐀𝐈𝐃 𝐌𝐎𝐇𝐀𝐌𝐄𝐃
+┊ ✧ *ᴏᴡɴᴇʀ:* ${settings.ownerNames.join(', ')}
 ┊ ✧ *ᴛᴏᴛᴀʟ ᴄᴏᴍᴍᴀɴᴅꜱ:* ${totalCommands}
 ╰─── ･ ｡ﾟ☆: *.☽ .* :☆ﾟ. ───╯
 
