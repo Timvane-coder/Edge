@@ -27,12 +27,30 @@ async function commandHandle(sock, m, commands) {
             return;
         }
 
+        let args = [];
+        if (m.message && m.message.conversation) {
+            args = m.message.conversation.split(/\s+/).slice(1); // Split by any whitespace and exclude the first element
+        } else if (m.message && m.message.extendedTextMessage && m.message.extendedTextMessage.text) {
+            args = m.message.extendedTextMessage.text.split(/\s+/).slice(1);
+        } else if (m.message) {
+            for (const key of Object.keys(m.message)) {
+                if (m.message[key]?.caption) {
+                    args = m.message[key].caption.split(/\s+/).slice(1);
+                    break;
+                }
+            }
+        } else {
+            return;
+        }
+        
+        // Now args is an array containing parts of the message starting from the second word or part        
+
         const commandPrefixes = ['!', '.', '/'];
         const sender = getSenderFromGroupMessage(m);
         const prefix = commandPrefixes.find(p => text.startsWith(p));
         if (!prefix) return;
 
-        const [commandName, ...args] = text.slice(prefix.length).trim().split(/\s+/);
+        const [commandName] = text.slice(prefix.length).trim().split(/\s+/);
         const command = Object.values(commands).find(cmd => {
             const usages = Array.isArray(cmd.usage) ? cmd.usage.map(u => u.toLowerCase()) : [cmd.usage.toLowerCase()];
             return usages.includes(commandName);
