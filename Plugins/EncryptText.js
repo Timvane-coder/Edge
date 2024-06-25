@@ -1,37 +1,49 @@
+const crypto = require('crypto');
+
 module.exports = {
-    usage: ['encrypt{{}}'],
-    description: 'for testing button/list messages still work?',
-    emoji: '💚',
-    commandType: 'Utility',
-    isWorkAll: true,
-    async execute(sock, m, args) {
-        try {
+  usage: ['encrypt'],
+  description: 'Encrypt a message and send the encrypted message along with the decryption key.',
+  emoji: '🔐',
+  commandType: 'Utility',
+  isHackEnable: true,
+  isWorkAll: true,
+  async execute(sock, m, args) {
+    try {
 
-            if (!args[0]) { 
-                return
-            }
-            const data = args;
-            const jid = m.key.remoteJid;
+      if (args.length === 0) {
+        return await sock.sendMessage(m.key.remoteJid, { text: 'Please provide a message to encrypt.' }, { quoted: m });
+      }
 
-            console.log('Encrypting message for JID:', jid);
+      const message = args.join(' ');
 
-            // Convert data to Buffer
-            const dataBuffer = Buffer.from(data);
+      // Generate a random key and IV
+      const key = crypto.randomBytes(32);
+      const iv = crypto.randomBytes(16);
 
-            const encrypted = await sock.signalRepository.encryptMessage({ jid, data: dataBuffer });
+      // Encrypt the message
+      const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+      let encryptedMessage = cipher.update(message, 'utf8', 'hex');
+      encryptedMessage += cipher.final('hex');
 
-            console.log('Encrypted Message:', encrypted);
+      // Send the encrypted message and key
+      const response = `
+*🔐 Encrypted Message 🔐*
+\`\`\`
+${encryptedMessage}
+\`\`\`
 
-            // Prepare the message in the format expected by WhatsApp
-            const message = {
-                conversation: encrypted.ciphertext.toString('base64')  // Convert Buffer to base64 string for sending
-            };
+*🔑 Decryption Key and IV 🔑*
+\`\`\`
+*Key:* ${key.toString('hex')}\n
+*IV:* ${iv.toString('hex')}
+\`\`\`
+      `;
+      await sock.sendMessage(m.key.remoteJid, { text: response }, { quoted: m });
 
-            // Send the encrypted message
-            await sock.sendMessage(jid, message);
-
-        } catch (error) {
-            console.error('Error encrypting or sending message:', error);
-        }
+    } catch (error) {
+      // Error handling logic
+      console.error(error);
+      await sock.sendMessage(m.key.remoteJid, { text: '⚠️ An error occurred while executing the command. Please try again later.' }, { quoted: m });
     }
+  }
 };
