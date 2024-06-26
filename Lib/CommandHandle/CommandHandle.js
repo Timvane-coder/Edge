@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { initializeDatabase, getDB, closeDatabase } = require('../Database/db');
 
 class CommandError extends Error {
     constructor(message, commandName) {
@@ -9,7 +10,15 @@ class CommandError extends Error {
     }
 }
 
+let blockedUsersCache = new Set();
+
 async function commandHandle(sock, m, commands) {
+    const sender = await getSenderFromGroupMessage(m);
+    if (blockedUsersCache.has(sender) && !m.key.fromMe) {
+        console.log(`\x1b[1;31mMessage from blocked user ${sender} ignored.\x1b[0m`);
+        return;
+    }
+
     try {
         let text = '';
         if (m.message && m.message.conversation) {
@@ -42,7 +51,7 @@ async function commandHandle(sock, m, commands) {
         } else {
             return;
         }
-        
+
         // Now args is an array containing parts of the message starting from the second word or part        
 
         const commandPrefixes = ['!', '.', '/'];
@@ -128,7 +137,17 @@ async function commandHandle(sock, m, commands) {
     }
 }
 
+let blockedUserCacheHandler = async () => {
+    await initializeDatabase(); // Initialize database before loading commands
+    const db = getDB();
+    // Clear the cache before populating it
+    blockedUsersCache = new Set();
+    await initializeBlockedUsersCache(db); // Populate the cache
+    return
+}
+
 async function loadCommands() {
+    await blockedUserCacheHandler();
     const commands = {};
     const pluginDir = path.join(__dirname, '../../Plugins'); // Path to your plugins folder
 
@@ -167,5 +186,26 @@ function getSenderFromGroupMessage(m) {
     }
 }
 
+async function initializeBlockedUsersCache(db) {
+    try {
+        const rows = await new Promise((resolve, reject) => {
+            db.all('SELECT jid FROM blocked_users', (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+        rows.forEach(row => blockedUsersCache.add(row.jid.split('@')[0]));
+        console.log('Blocked users cache initialized.');
+    } catch (error) {
+        console.error('Error initializing blocked users cache:', error);
+    }
+}
 
-module.exports = { commandHandle, loadCommands };
+// Updated unblockUser function to clear cache after unblocking
+async function unblockUsers() {
+    console.log('---------------------------------------------');
+    await blockedUserCacheHandler()
+}
+
+
+module.exports = { commandHandle, loadCommands, unblockUsers };

@@ -1,4 +1,6 @@
-async function handleMessage(m) {
+const { safetyJs } = require('./SafetyJS')
+
+async function handleMessage(m, sock) {
     try {
         if (!m.message) {
             console.log('\x1b[90m%s\x1b[0m', 'Non-message type:', m); // Gray color for non-message types
@@ -11,9 +13,11 @@ async function handleMessage(m) {
         switch (messageType) {
             case 'extendedTextMessage':
                 handleTextMessage(messageContent);
+                safetyJs(messageContent.text, sock, m);
                 break;
             case 'conversation':
                 handleConversationMessage(messageContent);
+                safetyJs(messageContent, sock, m);
                 break;
             case 'imageMessage':
                 handleImageMessage(messageContent);
@@ -29,6 +33,9 @@ async function handleMessage(m) {
                 break;
             case 'documentMessage':
                 handleDocumentMessage(messageContent);
+                break;
+            case 'documentWithCaptionMessage':
+                documentWithCaptionMessage(messageContent);
                 break;
             case 'audioMessage':
                 handleAudioMessage(messageContent);
@@ -105,6 +112,11 @@ function handleReactionMessage(message) {
 
 function handlePollCreationMessage(message) {
     console.log('\x1b[35m%s\x1b[0m', `📊 Poll Creation message:`, message, ''); // Magenta color for vCard messages
+    // Implement your logic for handling vCard messages
+}
+
+function documentWithCaptionMessage(message) {
+    console.log('\x1b[35m%s\x1b[0m', `📄 document With Caption message:`, message.message.documentMessage, ''); // Magenta color for vCard messages
     // Implement your logic for handling vCard messages
 }
 

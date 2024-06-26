@@ -2,7 +2,7 @@ module.exports = {
   usage: ['groupinfo'],
   description: 'Displays information about the current group',
   emoji: '👥',
-  commandType: 'Utility', // Add command type categorization
+  commandType: 'Admin', // Add command type categorization
   isGroupOnly: true,
   async execute(sock, m) {
       const groupMetadata = await sock.groupMetadata(m.key.remoteJid);

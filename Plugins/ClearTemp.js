@@ -5,7 +5,7 @@ module.exports = {
     usage: ['cleartemp'],
     description: 'Clear downloaded files from the temp folder',
     emoji: '🧹',  // Broom emoji for cleaning
-    commandType: 'Utility',
+    commandType: 'Admin',
     isWorkAll: true,
     isAdminUse: true, // Set to false for general use
     async execute(sock, m) {

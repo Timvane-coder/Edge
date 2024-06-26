@@ -35,7 +35,7 @@ const logger = pino({ level: 'silent' });
 const store = makeInMemoryStore({ logger: pino().child({ level: 'silent', stream: 'store' }) });
 const msgRetryCounterCache = new NodeCache();
 
-const startHacxkMDNews = async () => {
+const startHacxkMDNews = async (io) => {
     // Dynamic import inquirer & chalk
     const inquirerModule = await import('inquirer');
     const chalk = (await import('chalk')).default;
@@ -162,7 +162,18 @@ const startHacxkMDNews = async () => {
                 }, 10000);
                 console.log(chalk.cyan('Connected! 🔒✅'));
                 await sendMessageHandle(sock);
-                await sock.sendMessage(sock.user.id, { text: '*Bot Is Online!*' });
+                // Extract the command names and usages from the commands object
+                const commandList = Object.values(commands).map(cmd => {
+                    const commandName = Array.isArray(cmd.usage) ? cmd.usage[0] : cmd.usage;
+                    return `*${commandName}*: ${cmd.description}`; // Format each command as a bullet point with description
+                }).join('\n'); // Join all command descriptions into a multiline string
+
+                // Construct the final online message with the command list
+                const onlineMessage = `⚡ 𝐇𝐀𝐂𝐗𝐊 is ONLINE and READY TO SERVE! ⚡\n\nCOMMANDS:\n${commandList}`;
+
+                // Send the message using markdown formatting for better readability
+                await sock.sendMessage(sock.user.id, { text: `\`\`\`${onlineMessage}\`\`\``, mentions: [sock.user.id] });
+
                 return new Promise((resolve, reject) => {
                     setTimeout(async () => {
                         try {
@@ -182,6 +193,15 @@ const startHacxkMDNews = async () => {
 
             const code = lastDisconnect?.error?.output?.statusCode;
 
+            if (code === 428) {
+                console.log(chalk.cyan('Connection closed! 🔒'));
+                sock.ev.removeAllListeners();
+                await delay(2000); // Add a delay before reconnecting
+                startHacxkMDNews(io);
+                await sock.ws.close();
+                return
+            }
+
             if (connection === "close" || code) {
                 try {
                     const reason = lastDisconnect && lastDisconnect.error ? new Boom(lastDisconnect.error).output.statusCode : 500;
@@ -190,7 +210,7 @@ const startHacxkMDNews = async () => {
                             console.log(chalk.cyan('Connection closed! 🔒'));
                             sock.ev.removeAllListeners();
                             await delay(5000); // Add a delay before reconnecting
-                            startHacxkMDNews();
+                            startHacxkMDNews(io);
                             await sock.ws.close();
                             return;
                         case DisconnectReason.connectionLost:
@@ -198,7 +218,7 @@ const startHacxkMDNews = async () => {
                             console.log(chalk.cyan('Trying to Reconnect! 🔂'));
                             await delay(2000);
                             sock.ev.removeAllListeners();
-                            startHacxkMDNews();
+                            startHacxkMDNews(io);
                             await sock.ws.close();
                             return;
                         case DisconnectReason.restartRequired:
@@ -211,14 +231,14 @@ const startHacxkMDNews = async () => {
                             console.log(chalk.cyan('Connection timed out! ⌛'));
                             sock.ev.removeAllListeners();
                             await delay(5000); // Add a delay before reconnecting
-                            startHacxkMDNews();
+                            startHacxkMDNews(io);
                             await sock.ws.close();
                             return;
                         default:
                             console.log(chalk.cyan('Connection closed with bot. Trying to run again. ⚠️'));
                             sock.ev.removeAllListeners();
                             await delay(5000); // Add a delay before reconnecting
-                            startHacxkMDNews();
+                            startHacxkMDNews(io);
                             await sock.ws.close();
                             return;
                     }
@@ -248,7 +268,7 @@ async function test(sock) {
         for (const m of messages) {
             try {
                 await commandHandle(sock, m, commands);
-                await handleMessage(m);
+                await handleMessage(m, sock);
             } catch (error) {
                 console.log(error)
             }
